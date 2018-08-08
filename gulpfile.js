@@ -1,90 +1,135 @@
 var gulp = require('gulp'),
-    gutil = require('gulp-util'),
-    compass = require('gulp-compass'), // gem install compass --user-install
-    connect = require('gulp-connect'),
+    plumber = require('gulp-plumber'),
+    browserSync = require('browser-sync'),
     gulpif = require('gulp-if'),
-    uglify = require('gulp-uglify'),
-    minifyHTML = require('gulp-minify-html'),
     jsonminify = require('gulp-jsonminify'),
+    uglify = require('gulp-uglify'),
+    compass = require('gulp-compass'), // gem install compass --user-install
+    // cleanCSS = require('gulp-clean-css'),
+    htmlmin = require('gulp-htmlmin'),
     concat = require('gulp-concat');
+    // fileinclude = require('gulp-file-include');
 
-var env,
-jsSrcs,
-sassSrcs,
-htmlSrcs,
-jsonSrcs,
-outputDir,
-sassStyle;
 
-// NODE_ENV=prod gulp compass
-env = process.env.NODE_ENV || 'dev';
 
-if (env === 'dev') {
-	outputDir = 'builds/development/';
-	sassStyle = 'expanded';
-} else if (env === 'prod') {
-	outputDir = 'builds/production/';
-	sassStyle = 'compressed';
+// Define all variables
+var ENV,
+JS,
+SASS,
+DIST,
+cssStyle;
+
+
+
+// Redirect output of expanded / minified files
+// NODE_ENV=prod gulp
+ENV = process.env.NODE_ENV || 'dev';
+
+if (ENV === 'dev') {
+	DIST = 'dist/dev/';
+	cssStyle = 'expanded';
+} else if (ENV === 'prod') {
+	DIST = 'dist/prod/';
+	cssStyle = 'compressed';
 }
 
-jsSrcs = [
-	'components/scripts/example.js' // scripts processed in order found in array
-];
-sassSrcs = ['components/sass/**/*.scss'];
-htmlSrcs = [outputDir + '*.html'];
-jsonSrcs = [outputDir + 'js/*.json'];
 
+
+// File paths
+JS = [
+	'src/js/example.js' // scripts processed in order found in array
+];
+SASS = ['src/sass/**/*.scss'];
+
+
+
+gulp.task('html', function() {
+	gulp.src('dist/dev/*.html')
+        .pipe(plumber({
+            handleError: function(e) {
+                console.log(e);
+                this.emit('end');
+            }
+        }))
+    	.pipe(gulpif(ENV === 'prod', htmlmin({
+            collapseWhitespace: true,
+            removeComments: true
+        })))
+    	.pipe(gulpif(ENV === 'prod', gulp.dest('dist/prod/')));
+});
+
+
+
+gulp.task('json', function() {
+	gulp.src('dist/dev/json/*.json')
+        .pipe(plumber({
+            handleError: function(e) {
+                console.log(e);
+                this.emit('end');
+            }
+        }))
+    	.pipe(gulpif(ENV === 'prod', jsonminify()))
+    	.pipe(gulpif(ENV === 'prod', gulp.dest('dist/prod/json/')));
+});
 
 
 
 gulp.task('js', function() {
-	gulp.src(jsSrcs)
+	gulp.src(JS)
+        .pipe(plumber({
+            handleError: function(e) {
+                console.log(e);
+                this.emit('end');
+            }
+        }))
 		.pipe(concat('main.js'))
-		.pipe(gulpif(env === 'prod', uglify()))
-		.pipe(gulp.dest(outputDir + 'js'))
-		.pipe(connect.reload());
+		.pipe(gulpif(ENV === 'prod', uglify()))
+		.pipe(gulp.dest(DIST + 'js'));
 });
+
+
 
 gulp.task('compass', function() {
-	gulp.src(sassSrcs)
+	gulp.src(SASS)
+        .pipe(plumber({
+            handleError: function(e) {
+                console.log(e);
+                this.emit('end');
+            }
+        }))
 		.pipe(compass({
-			css: outputDir + 'css',
-			sass: 'components/sass',
-			image: outputDir + 'img',
-			style: sassStyle //,
+			css: DIST + 'css',
+			sass: 'src/sass',
+			image: DIST + 'img',
+			style: cssStyle //,
 			// comments: true
-		}))
-		.on('error', gutil.log)
-		.pipe(connect.reload());
+		}));
 });
+
+
 
 gulp.task('watch', function() {
-	gulp.watch(jsSrcs, ['js']);
-	gulp.watch('components/sass/**/*.scss', ['compass']);
-	gulp.watch('builds/development/*.html', ['html']);
-	gulp.watch('builds/development/js/*.json', ['json']);
-});
-
-gulp.task('connect', function() {
-	connect.server({
-		root: outputDir,
-		livereload: true
-	});
-});
-
-gulp.task('html', function() {
-	gulp.src('builds/development/*.html')
-	.pipe(gulpif(env === 'prod', minifyHTML()))
-	.pipe(gulpif(env === 'prod', gulp.dest(outputDir)))
-	.pipe(connect.reload());
-});
-
-gulp.task('json', function() {
-	gulp.src('builds/development/js/*.json')
-	.pipe(gulpif(env === 'prod', jsonminify()))
-	.pipe(gulpif(env === 'prod', gulp.dest('builds/production/js')))
-	.pipe(connect.reload());
+    browserSync.init({
+        open:  false,
+        server: {
+            baseDir: DIST
+        },
+        ui: false,
+        port: 8000
+    });
+	gulp.watch(JS, ['js']);
+	gulp.watch(SASS, ['compass']);
+	gulp.watch('dist/dev/*.html', ['html']);
+	gulp.watch('dist/dev/js/*.json', ['json']);
+    gulp.watch(DIST + '**/*', ['sync'] );
 });
 
 
-gulp.task('default', ['html', 'json', 'js', 'compass', 'connect', 'watch']);
+
+gulp.task('sync', function(){
+  browserSync.reload();
+});
+
+
+
+gulp.task('default', ['html', 'json', 'js', 'compass', 'watch']);

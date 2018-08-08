@@ -1,0 +1,15 @@
+.finish {
+  color: #000;
+}
+
+.mixin-ex {
+  border-radius: 3px;
+}
+.mixin-ex ul {
+  margin: 0;
+  padding: 0;
+}
+.mixin-ex ul li {
+  width: 100px;
+  height: 100px;
+}
